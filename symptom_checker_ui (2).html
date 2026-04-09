@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Symptom Checker AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2330;
+    --border: #2a3441;
+    --accent: #3fb950;
+    --accent2: #58a6ff;
+    --warn: #f0883e;
+    --danger: #f85149;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --tag-bg: rgba(63,185,80,0.12);
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #3fb950, #58a6ff);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .logo-text span { color: var(--accent); }
+  .header-badge {
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    background: var(--tag-bg);
+    color: var(--accent);
+    border: 1px solid rgba(63,185,80,0.3);
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Layout ── */
+  .app {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    flex: 1;
+    height: calc(100vh - 64px);
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .sidebar-section h3 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding-left: 0.5rem;
+  }
+  .tool-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .tool-card:hover { border-color: var(--accent); background: rgba(63,185,80,0.06); }
+  .tool-icon { font-size: 1.2rem; margin-top: 1px; flex-shrink: 0; }
+  .tool-info .tool-name { font-size: 0.85rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .tool-info .tool-desc { font-size: 0.73rem; color: var(--muted); line-height: 1.4; }
+
+  .quick-chips { display: flex; flex-direction: column; gap: 0.4rem; }
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1.35;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent2); background: rgba(88,166,255,0.06); }
+
+  .disclaimer {
+    background: rgba(240,136,62,0.08);
+    border: 1px solid rgba(240,136,62,0.25);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.73rem;
+    color: #c9a76a;
+    line-height: 1.5;
+  }
+  .disclaimer strong { color: var(--warn); display: block; margin-bottom: 4px; }
+
+  /* ── Chat Area ── */
+  .chat-area {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 5px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Welcome */
+  .welcome {
+    text-align: center;
+    padding: 3rem 2rem;
+    max-width: 520px;
+    margin: auto;
+  }
+  .welcome .big-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    display: block;
+    filter: drop-shadow(0 0 24px rgba(63,185,80,0.4));
+  }
+  .welcome h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, #e6edf3, #3fb950);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .welcome p { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+
+  /* Messages */
+  .msg { display: flex; gap: 12px; align-items: flex-start; animation: fadeUp 0.3s ease; }
+  .msg.user { flex-direction: row-reverse; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; font-weight: 700;
+  }
+  .avatar.ai {
+    background: linear-gradient(135deg, #3fb950, #58a6ff);
+    color: #0d1117;
+  }
+  .avatar.user {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .bubble {
+    max-width: 72%;
+    padding: 1rem 1.2rem;
+    border-radius: 16px;
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+  .msg.ai .bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+    color: var(--text);
+  }
+  .msg.user .bubble {
+    background: rgba(63,185,80,0.14);
+    border: 1px solid rgba(63,185,80,0.25);
+    border-top-right-radius: 4px;
+    color: var(--text);
+  }
+
+  /* Tool Call indicator */
+  .tool-use {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(88,166,255,0.08);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 8px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent2);
+  }
+  .tool-use::before { content: '⚙'; }
+
+  /* Result cards within bubbles */
+  .result-section { margin-top: 12px; }
+  .result-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .conditions-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .condition-tag {
+    background: var(--tag-bg);
+    border: 1px solid rgba(63,185,80,0.3);
+    color: var(--accent);
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .urgency-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 10px;
+    font-size: 0.8rem; font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .urgency-badge.emergency { background: rgba(248,81,73,0.15); border: 1px solid rgba(248,81,73,0.4); color: var(--danger); }
+  .urgency-badge.high { background: rgba(240,136,62,0.15); border: 1px solid rgba(240,136,62,0.4); color: var(--warn); }
+  .urgency-badge.medium { background: rgba(255,210,0,0.1); border: 1px solid rgba(255,210,0,0.3); color: #e3b341; }
+  .urgency-badge.low { background: rgba(63,185,80,0.12); border: 1px solid rgba(63,185,80,0.3); color: var(--accent); }
+
+  .med-box {
+    background: rgba(88,166,255,0.05);
+    border: 1px solid rgba(88,166,255,0.15);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: #8cb4e0;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .doctor-box {
+    background: rgba(188,140,255,0.07);
+    border: 1px solid rgba(188,140,255,0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: #b5a0e8;
+    line-height: 1.5;
+  }
+  .note-box {
+    background: rgba(240,136,62,0.07);
+    border: 1px solid rgba(240,136,62,0.2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    color: #c9a76a;
+    margin-top: 10px;
+  }
+
+  /* Loading dots */
+  .typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1.4s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+  /* ── Input Bar ── */
+  .input-bar {
+    padding: 1.25rem 2.5rem 1.5rem;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+  .input-wrap {
+    display: flex;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 10px 10px 16px;
+    transition: border-color 0.2s;
+  }
+  .input-wrap:focus-within { border-color: rgba(63,185,80,0.5); }
+  textarea {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    resize: none;
+    max-height: 120px;
+    min-height: 24px;
+    line-height: 1.5;
+  }
+  textarea::placeholder { color: var(--muted); }
+  .send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    width: 40px; height: 40px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    color: #0d1117;
+    font-size: 1.1rem;
+  }
+  .send-btn:hover { background: #4dde68; transform: scale(1.05); }
+  .send-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  .input-hint {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  /* Scrollbar */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media(max-width:768px){
+    .app { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .messages { padding: 1.25rem; }
+    .input-bar { padding: 1rem; }
+    .bubble { max-width: 90%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🩺</div>
+    <div class="logo-text">Symptom<span>AI</span></div>
+  </div>
+  <span class="header-badge">AI-POWERED · NOT A DIAGNOSIS</span>
+</header>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <h3>Available Tools</h3>
+      <div class="tool-card" onclick="insertPrompt('I have fever, headache, and body aches. What could this be?')">
+        <span class="tool-icon">🔍</span>
+        <div class="tool-info">
+          <div class="tool-name">Symptom Lookup</div>
+          <div class="tool-desc">Match symptoms to possible conditions</div>
+        </div>
+      </div>
+      <div class="tool-card" onclick="insertPrompt('How urgent is my situation with chest pain and shortness of breath?')">
+        <span class="tool-icon">⚡</span>
+        <div class="tool-info">
+          <div class="tool-name">Urgency Calculator</div>
+          <div class="tool-desc">Emergency / High / Medium / Low triage</div>
+        </div>
+      </div>
+      <div class="tool-card" onclick="insertPrompt('What OTC medications are available for flu?')">
+        <span class="tool-icon">💊</span>
+        <div class="tool-info">
+          <div class="tool-name">Medication Info</div>
+          <div class="tool-desc">General OTC care guidance</div>
+        </div>
+      </div>
+      <div class="tool-card" onclick="insertPrompt('Which type of doctor should I see for a heart condition?')">
+        <span class="tool-icon">👨‍⚕️</span>
+        <div class="tool-info">
+          <div class="tool-name">Doctor Finder</div>
+          <div class="tool-desc">Find the right specialist for your needs</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Quick Scenarios</h3>
+      <div class="quick-chips">
+        <div class="chip" onclick="insertPrompt('I have fever, headache, and body aches since yesterday.')">🤒 Fever with body aches</div>
+        <div class="chip" onclick="insertPrompt('I am experiencing sudden chest pain and shortness of breath.')">💔 Chest pain & breathlessness</div>
+        <div class="chip" onclick="insertPrompt('I have a mild sore throat and runny nose. Is it serious?')">🤧 Sore throat & runny nose</div>
+        <div class="chip" onclick="insertPrompt('I feel nauseous, dizzy and have abdominal pain.')">🤢 Nausea & stomach pain</div>
+        <div class="chip" onclick="insertPrompt('I have a rash on my arms and joint pain.')">🦠 Rash & joint pain</div>
+        <div class="chip" onclick="insertPrompt('Based on what I told you, which doctor should I see?')">👨‍⚕️ Which doctor to visit?</div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <strong>⚠ Medical Disclaimer</strong>
+      This tool is for informational purposes only and does NOT replace professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider.
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <span class="big-icon">🩺</span>
+        <h2>How are you feeling?</h2>
+        <p>Describe your symptoms and I'll help identify possible conditions, check urgency levels, suggest medications, and find the right specialist for you.</p>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="userInput" rows="1" placeholder="Describe your symptoms (e.g. fever, headache, cough)…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+      </div>
+      <div class="input-hint">Press Enter to send · Shift+Enter for new line</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  Tool Logic — mirrors symptom_checker_agent.py
+// ═══════════════════════════════════════════════
+
+const symptomDB = {
+  "fever":               ["Flu","COVID-19","Malaria","Typhoid"],
+  "headache":            ["Migraine","Tension headache","Hypertension","Sinusitis"],
+  "cough":               ["Common Cold","COVID-19","Bronchitis","Asthma"],
+  "chest pain":          ["Heart attack","Angina","Acid reflux","Pneumonia"],
+  "fatigue":             ["Anemia","Diabetes","Hypothyroidism","Depression"],
+  "shortness of breath": ["Asthma","COVID-19","Heart failure","Pneumonia"],
+  "nausea":              ["Food poisoning","Gastritis","Appendicitis","Pregnancy"],
+  "rash":                ["Allergy","Chickenpox","Dengue","Eczema"],
+  "joint pain":          ["Arthritis","Dengue","Lupus","Gout"],
+  "sore throat":         ["Strep throat","Tonsillitis","Common Cold","COVID-19"],
+  "dizziness":           ["Vertigo","Low blood pressure","Anemia","Inner ear infection"],
+  "abdominal pain":      ["Appendicitis","IBS","Gastritis","Kidney stones"],
+  "back pain":           ["Muscle strain","Herniated disc","Kidney infection","Sciatica"],
+  "runny nose":          ["Common Cold","Allergic rhinitis","Sinusitis","Flu"],
+  "vomiting":            ["Food poisoning","Gastroenteritis","Appendicitis","Migraine"],
+  "body aches":          ["Flu","COVID-19","Dengue","Fibromyalgia"],
+};
+
+function symptomLookup(symptoms) {
+  const list = symptoms.toLowerCase().split(/,|\band\b/).map(s => s.trim());
+  const found = new Set();
+  for (const s of list) {
+    for (const [key, conds] of Object.entries(symptomDB)) {
+      if (key.includes(s) || s.includes(key)) conds.forEach(c => found.add(c));
+    }
+  }
+  return [...found].sort();
+}
+
+function urgencyCalculator(symptoms) {
+  const sl = symptoms.toLowerCase();
+  const emergency = ["chest pain","difficulty breathing","unconscious","stroke","seizure","cannot breathe","heart attack"];
+  const high      = ["shortness of breath","high fever","severe headache","severe pain","coughing blood","confusion","fainting"];
+  const medium    = ["fever","vomiting","fatigue","rash","cough","sore throat","nausea","dizziness","abdominal pain","body aches","joint pain","runny nose"];
+
+  if (emergency.some(k => sl.includes(k))) return { level:"emergency", label:"🚨 EMERGENCY", text:"Call 911 or go to the Emergency Room immediately. Do not drive yourself. These symptoms may indicate a life-threatening condition." };
+  if (high.some(k => sl.includes(k)))      return { level:"high",      label:"🔴 HIGH URGENCY", text:"Visit a doctor or urgent care clinic within 24 hours. If symptoms worsen rapidly, go to the ER." };
+  if (medium.some(k => sl.includes(k)))    return { level:"medium",    label:"🟡 MEDIUM URGENCY", text:"Schedule a doctor's appointment within 2–3 days. Monitor symptoms and rest. Go to urgent care if symptoms worsen." };
+  return                                          { level:"low",       label:"🟢 LOW URGENCY", text:"Monitor your symptoms at home. Rest, stay hydrated, and consult a doctor if symptoms persist beyond 3–5 days." };
+}
+
+const medDB = {
+  "flu":            "Rest 7–10 days. Paracetamol/Acetaminophen for fever and aches. Antihistamines for congestion. Stay hydrated. Antiviral (Tamiflu) if prescribed early.",
+  "migraine":       "Ibuprofen or Aspirin at onset. Rest in a dark, quiet room. Cold compress on forehead. See a doctor if migraines are frequent.",
+  "common cold":    "Vitamin C, zinc lozenges, warm fluids, steam inhalation. Decongestant nasal spray (max 3 days). No antibiotics needed.",
+  "gastritis":      "Antacids (Omeprazole, Ranitidine). Avoid spicy, acidic, and fatty food. Small frequent meals. See a doctor if symptoms persist > 2 weeks.",
+  "allergy":        "Antihistamines (Cetirizine, Loratadine). Avoid known allergen triggers. Nasal steroid spray for persistent symptoms. Consult doctor for allergy testing.",
+  "asthma":         "Use your prescribed reliever inhaler immediately. Sit upright. Avoid triggers. SEEK EMERGENCY CARE if inhaler gives no relief.",
+  "food poisoning": "Oral rehydration salts (ORS). BRAT diet: bananas, rice, applesauce, toast. Avoid anti-diarrheals for first 24 hrs. See a doctor if fever > 38.5°C or symptoms > 48 hrs.",
+  "dengue":         "No specific antiviral. Paracetamol for fever (AVOID aspirin/ibuprofen). Hydration is critical. Hospitalization often needed. Monitor platelet count.",
+  "arthritis":      "Ibuprofen or Naproxen for pain and inflammation. Warm/cold packs. Low-impact exercise. See a rheumatologist for long-term management.",
+  "anemia":         "Iron supplements (ferrous sulfate) if iron-deficiency. Foods rich in iron: leafy greens, lentils, red meat. Vitamin C aids iron absorption. Full blood count test recommended.",
+};
+
+function medicationInfo(condition) {
+  const cl = condition.toLowerCase().trim();
+  for (const [key, info] of Object.entries(medDB)) {
+    if (key.includes(cl) || cl.includes(key)) return { condition: condition, info };
+  }
+  return null;
+}
+
+const specialtiesDB = {
+  "heart":     "Cardiologist — visit a cardiology clinic or major hospital cardiac department.",
+  "skin":      "Dermatologist — visit a dermatology clinic for skin conditions.",
+  "lung":      "Pulmonologist — for breathing and respiratory issues.",
+  "stomach":   "Gastroenterologist — for digestive and abdominal issues.",
+  "bone":      "Orthopedic specialist — for fractures, joint pain, back pain.",
+  "nerve":     "Neurologist — for headaches, dizziness, numbness, seizures.",
+  "mental":    "Psychiatrist or Psychologist — for anxiety, depression, mental health concerns.",
+  "child":     "Pediatrician — for children under 18 years.",
+  "emergency": "Emergency Room (ER) — go to the nearest hospital emergency department immediately.",
+  "general":   "General Practitioner (GP) / Family Doctor — for most non-emergency concerns.",
+  "eye":       "Ophthalmologist — for vision problems and eye conditions.",
+  "ear":       "ENT (Ear-Nose-Throat) specialist — for hearing, ear pain, or sinus issues.",
+};
+
+function doctorFinder(specialty) {
+  const sl = specialty.toLowerCase();
+  for (const [key, guidance] of Object.entries(specialtiesDB)) {
+    if (sl.includes(key)) return guidance;
+  }
+  return `For '${specialty}', we recommend starting with a General Practitioner (GP) who can refer you to the appropriate specialist. In India, you can find doctors on Practo, Apollo 247, or your nearest government hospital.`;
+}
+
+// ═══════════════════════════════════════════════
+//  Agent Logic
+// ═══════════════════════════════════════════════
+
+const conversationHistory = [];
+
+function detectIntent(text) {
+  const tl = text.toLowerCase();
+  const intents = {
+    symptoms: /fever|cough|headache|pain|ache|nausea|vomit|rash|dizzin|tired|fatigue|breath|sore throat|runny|congestion|joint|abdomin|back pain|bleed|sweat|chills|symptom|feeling|suffering|sick/i,
+    urgency:  /urgent|emergency|serious|bad|how (bad|serious|urgent)|call|911|should i go|er\b|hospital/i,
+    medication: /medicine|medication|drug|otc|treat|tablet|pill|dose|prescription|pharmacy/i,
+    doctor:   /doctor|specialist|physician|hospital|clinic|see|visit|which doctor|who should|refer/i,
+  };
+  const matched = [];
+  if (intents.symptoms.test(tl)) matched.push('symptoms');
+  if (intents.urgency.test(tl))   matched.push('urgency');
+  if (intents.medication.test(tl)) matched.push('medication');
+  if (intents.doctor.test(tl))    matched.push('doctor');
+  if (!matched.length) matched.push('symptoms', 'urgency');
+  return matched;
+}
+
+function extractSymptoms(text) {
+  const symptomKeys = Object.keys(symptomDB);
+  const found = [];
+  const tl = text.toLowerCase();
+  for (const k of symptomKeys) {
+    if (tl.includes(k)) found.push(k);
+  }
+  // Also grab comma/and-separated phrases after "have"
+  const m = tl.match(/(?:have|experiencing|feeling|suffering from|with)\s+([^.?!]+)/);
+  if (m) {
+    const raw = m[1].split(/,|\band\b/).map(s => s.trim()).filter(Boolean);
+    raw.forEach(r => { if (!found.includes(r)) found.push(r); });
+  }
+  return found.length ? found.join(', ') : text;
+}
+
+function processUserMessage(text) {
+  const intents = detectIntent(text);
+  const extractedSymptoms = extractSymptoms(text);
+  const result = { toolCalls: [], conditions: [], urgency: null, meds: [], doctors: [], summary: '' };
+
+  if (intents.includes('symptoms')) {
+    result.toolCalls.push('symptom_lookup');
+    result.conditions = symptomLookup(extractedSymptoms);
+  }
+
+  if (intents.includes('urgency') || intents.includes('symptoms')) {
+    result.toolCalls.push('urgency_calculator');
+    result.urgency = urgencyCalculator(text);
+  }
+
+  if (intents.includes('medication') && result.conditions.length) {
+    result.toolCalls.push('medication_info');
+    for (const c of result.conditions.slice(0, 3)) {
+      const med = medicationInfo(c);
+      if (med) result.meds.push(med);
+    }
+  }
+
+  if (intents.includes('doctor')) {
+    result.toolCalls.push('doctor_finder');
+    const tl = text.toLowerCase();
+    let spec = 'general';
+    if (tl.includes('heart') || tl.includes('chest')) spec = 'heart';
+    else if (tl.includes('skin') || tl.includes('rash')) spec = 'skin';
+    else if (tl.includes('lung') || tl.includes('breath')) spec = 'lung';
+    else if (tl.includes('stomach') || tl.includes('abdom') || tl.includes('gastro')) spec = 'stomach';
+    else if (tl.includes('bone') || tl.includes('joint') || tl.includes('back')) spec = 'bone';
+    else if (tl.includes('head') || tl.includes('dizzi') || tl.includes('nerve')) spec = 'nerve';
+    else if (tl.includes('mental') || tl.includes('anxiety') || tl.includes('depress')) spec = 'mental';
+    else if (tl.includes('eye')) spec = 'eye';
+    else if (tl.includes('ear') || tl.includes('ent')) spec = 'ear';
+    else if (tl.includes('child') || tl.includes('pediatr')) spec = 'child';
+    else if (result.conditions.length) {
+      const c0 = result.conditions[0].toLowerCase();
+      if (c0.includes('heart') || c0.includes('angina')) spec = 'heart';
+      else if (c0.includes('asthma') || c0.includes('pneumonia')) spec = 'lung';
+      else if (c0.includes('arthritis') || c0.includes('gout')) spec = 'bone';
+      else if (c0.includes('migraine') || c0.includes('vertigo')) spec = 'nerve';
+    }
+    result.doctors.push(doctorFinder(spec));
+  }
+
+  return result;
+}
+
+// ═══════════════════════════════════════════════
+//  UI
+// ═══════════════════════════════════════════════
+
+function buildAIBubble(result) {
+  let html = '';
+
+  // Tool call badges
+  if (result.toolCalls.length) {
+    result.toolCalls.forEach(t => {
+      html += `<div class="tool-use">${t}()</div>`;
+    });
+  }
+
+  // Conditions
+  if (result.conditions.length) {
+    html += `<div class="result-section">
+      <div class="result-label">🔍 Possible Conditions</div>
+      <div class="conditions-list">${result.conditions.map(c => `<span class="condition-tag">${c}</span>`).join('')}</div>
+    </div>`;
+  } else if (result.toolCalls.includes('symptom_lookup')) {
+    html += `<div class="result-section"><div class="result-label">🔍 Symptom Lookup</div><p style="color:var(--muted);font-size:0.83rem;">No specific conditions matched. Please consult a doctor for a proper diagnosis.</p></div>`;
+  }
+
+  // Urgency
+  if (result.urgency) {
+    html += `<div class="result-section">
+      <div class="result-label">⚡ Urgency Assessment</div>
+      <div class="urgency-badge ${result.urgency.level}">${result.urgency.label}</div>
+      <p style="font-size:0.83rem;color:var(--muted);line-height:1.5;">${result.urgency.text}</p>
+    </div>`;
+  }
+
+  // Medications
+  if (result.meds.length) {
+    html += `<div class="result-section"><div class="result-label">💊 OTC Care Guidance</div>`;
+    result.meds.forEach(m => {
+      html += `<div class="med-box"><strong style="color:var(--accent2);display:block;margin-bottom:4px;">${m.condition}</strong>${m.info}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Doctors
+  if (result.doctors.length) {
+    html += `<div class="result-section">
+      <div class="result-label">👨‍⚕️ Recommended Specialist</div>
+      ${result.doctors.map(d => `<div class="doctor-box">${d}</div>`).join('')}
+    </div>`;
+  }
+
+  // Disclaimer
+  html += `<div class="note-box">⚠ This is <strong>not</strong> a medical diagnosis. Always consult a licensed healthcare professional before making any health decisions.</div>`;
+
+  return html;
+}
+
+function appendMessage(role, html, isHtml = false) {
+  const wrap = document.getElementById('messages');
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = `avatar ${role}`;
+  avatar.textContent = role === 'ai' ? '🩺' : '👤';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (isHtml) bubble.innerHTML = html;
+  else bubble.textContent = html;
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return div;
+}
+
+function appendTyping() {
+  const wrap = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg ai';
+  div.id = 'typing-indicator';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ai';
+  avatar.textContent = '🩺';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('userInput');
+  const btn = document.getElementById('sendBtn');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  btn.disabled = true;
+
+  appendMessage('user', text);
+  appendTyping();
+
+  // Simulate "thinking" delay for natural feel
+  await new Promise(r => setTimeout(r, 900 + Math.random() * 600));
+
+  const result = processUserMessage(text);
+  removeTyping();
+  appendMessage('ai', buildAIBubble(result), true);
+
+  btn.disabled = false;
+  input.focus();
+}
+
+function insertPrompt(text) {
+  const input = document.getElementById('userInput');
+  input.value = text;
+  autoResize(input);
+  input.focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+</script>
+</body>
+</html>
